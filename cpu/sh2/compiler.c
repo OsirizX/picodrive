@@ -5719,7 +5719,12 @@ int sh2_execute_drc(SH2 *sh2c, int cycles)
 #endif
 
   sh2c->state |= SH2_IN_DRC;
+#ifdef __PS3__
+  void (*_sh2_drc_entry)(SH2 *sh2) = (void (*)(SH2 *sh2))&sh2_drc_entry;
+  _sh2_drc_entry(sh2c);
+#else
   sh2_drc_entry(sh2c);
+#endif
   sh2c->state &= ~SH2_IN_DRC;
 
   // TODO: irq cycles
