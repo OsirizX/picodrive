@@ -407,7 +407,7 @@ enum { OPS_STD, OPS_STDU /*,OPS_STQ*/ };
 #define	PPC_MCRCR_REG(crt, crf) \
 	PPC_OP_REG(OP__CR,OPC_MCRF,(crt)<<2,(crf)<<1,_)
 
-#ifdef __powerpc64__
+#if defined(__powerpc64__) && !defined(__CELLOS_LV2__)
 #define PTR_SCALE			3
 #define PPC_LDP_IMM			PPC_LDX_IMM
 #define PPC_LDP_REG			PPC_LDX_REG
@@ -865,7 +865,7 @@ static void emith_set_compare_flags(int ra, int rb, s32 imm)
 
 static void emith_move_imm(int r, int ptr, uintptr_t imm)
 {
-#ifdef __powerpc64__
+#if defined(__powerpc64__) && !defined(__CELLOS_LV2__)
 	if (ptr && (s32)imm != imm) {
 		emith_move_imm(r, 0, imm >> 32);
 		if (imm >> 32)
@@ -1498,8 +1498,8 @@ static int emith_cond_check(int cond)
 
 #ifdef __PS3__
 #define emith_call_reg(r) do { \
-	emith_read_r_r_offs_ptr(TOC_REG, r, 8); \
-	emith_read_r_r_offs_ptr(r, r, 0); \
+	EMIT(PPC_LDP_IMM(TOC_REG, r, PTR_SIZE)); \
+	EMIT(PPC_LDP_IMM(r, r, 0)); \
 	EMIT(PPC_MTSP_REG(r, CTR)); \
 	EMIT(PPC_BLCTRCOND(BXX)); \
 } while(0)
@@ -1518,8 +1518,8 @@ static int emith_cond_check(int cond)
 #ifdef __PS3__
 #define emith_abijump_reg(r) \
 	if ((r) != CR) emith_move_r_r(CR, r); \
-	emith_read_r_r_offs_ptr(TOC_REG, CR, 8); \
-	emith_read_r_r_offs_ptr(CR, CR, 0); \
+	EMIT(PPC_LDP_IMM(TOC_REG, CR, PTR_SIZE)); \
+	EMIT(PPC_LDP_IMM(CR, CR, 0)); \
 	emith_jump_reg(CR)
 #else
 #define emith_abijump_reg(r) \
@@ -1634,6 +1634,20 @@ static NOINLINE void host_instructions_updated(void *base, void *end, int force)
 	emith_ret(); \
 } while (0)
 
+#ifdef __CELLOS_LV2__
+#define emith_sh2_rcall(a, tab, func, mask) do { \
+	emith_lsr(mask, a, SH2_READ_SHIFT); \
+	emith_add_r_r_r_lsl_ptr(tab, tab, mask, PTR_SCALE+1); \
+	emith_read_r_r_offs_ptr(func, tab, 0); \
+	emith_read_r_r_offs(mask, tab, PTR_SIZE); \
+	EMIT(PPC_BFXP_IMM(FC, func, 0, 1)); \
+	emith_add_r_r_ptr(func, func); \
+	EMIT(PPC_ORT_IMM(AT, AT, 0xffff)); \
+	EMIT(PPC_OR_IMM(AT, AT, 0xffff)); \
+	EMIT(PPC_AND_REG(func, func, AT)); \
+	emith_cmp_ra = emith_cmp_rb = -1; \
+} while (0)
+#else
 // NB: assumes a is in arg0, tab, func and mask are temp
 #define emith_sh2_rcall(a, tab, func, mask) do { \
 	emith_lsr(mask, a, SH2_READ_SHIFT); \
@@ -1644,6 +1658,7 @@ static NOINLINE void host_instructions_updated(void *base, void *end, int force)
 	emith_add_r_r_ptr(func, func); \
 	emith_cmp_ra = emith_cmp_rb = -1; \
 } while (0)
+#endif
 
 // NB: assumes a, val are in arg0 and arg1, tab and func are temp
 #define emith_sh2_wcall(a, val, tab, func) do { \
