@@ -407,7 +407,7 @@ enum { OPS_STD, OPS_STDU /*,OPS_STQ*/ };
 #define	PPC_MCRCR_REG(crt, crf) \
 	PPC_OP_REG(OP__CR,OPC_MCRF,(crt)<<2,(crf)<<1,_)
 
-#if defined(__powerpc64__) && !defined(__CELLOS_LV2__)
+#if (defined(__powerpc64__) && !defined(__PS3__)) || defined(__PSL1GHT__)
 #define PTR_SCALE			3
 #define PPC_LDP_IMM			PPC_LDX_IMM
 #define PPC_LDP_REG			PPC_LDX_REG
@@ -865,7 +865,7 @@ static void emith_set_compare_flags(int ra, int rb, s32 imm)
 
 static void emith_move_imm(int r, int ptr, uintptr_t imm)
 {
-#if defined(__powerpc64__) && !defined(__CELLOS_LV2__)
+#if (defined(__powerpc64__) && !defined(__PS3__)) || defined(__PSL1GHT__)
 	if (ptr && (s32)imm != imm) {
 		emith_move_imm(r, 0, imm >> 32);
 		if (imm >> 32)
@@ -1634,7 +1634,7 @@ static NOINLINE void host_instructions_updated(void *base, void *end, int force)
 	emith_ret(); \
 } while (0)
 
-#ifdef __CELLOS_LV2__
+#if defined(__PS3__) && !defined(__PSL1GHT__)
 #define emith_sh2_rcall(a, tab, func, mask) do { \
 	emith_lsr(mask, a, SH2_READ_SHIFT); \
 	emith_add_r_r_r_lsl_ptr(tab, tab, mask, PTR_SCALE+1); \
